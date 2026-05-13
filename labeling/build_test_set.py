@@ -65,7 +65,11 @@ def build(
     out_path: Path,
     min_fields: int = 2,
 ) -> None:
-    log_df = pd.read_csv(crawl_log)
+    log_df = pd.read_csv(
+        crawl_log,
+        names=["url", "domain", "path", "used_playwright", "error"],
+        header=0,
+    )
     log_df = log_df[log_df["path"].notna() & (log_df["path"] != "")]
     logger.info("%d crawled pages to process", len(log_df))
 

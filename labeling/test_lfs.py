@@ -22,9 +22,13 @@ from labeling.labeling_functions import (
     ABSTAIN,
     ALL_LFS,
     LABEL_NAMES,
-    lf_author_schema,
     lf_author_a,
+    lf_author_by_prefix,
     lf_author_classname,
+    lf_author_itemprop,
+    lf_author_rel,
+    lf_author_schema,
+    lf_author_schema_fuzzy,
     lf_author_xpath,
     lf_ingredient_kaggle,
     lf_ingredient_li_in_ul,
@@ -40,7 +44,16 @@ from labeling.labeling_functions import (
 from labeling.schema_org import extract as extract_schema
 
 CATEGORY_LFS = {
-    "author": [lf_author_schema, lf_author_xpath, lf_author_classname, lf_author_a],
+    "author": [
+        lf_author_schema,
+        lf_author_schema_fuzzy,
+        lf_author_xpath,
+        lf_author_classname,
+        lf_author_a,
+        lf_author_rel,
+        lf_author_itemprop,
+        lf_author_by_prefix,
+    ],
     "ingredients": [
         lf_ingredient_measure,
         lf_ingredient_xpath,
@@ -86,6 +99,8 @@ def _build_node_df(html: str, kaggle_row: pd.Series) -> pd.DataFrame:
             "tag": node.tag,
             "class_name": node.class_name or "",
             "link_href": node.link_href or "",
+            "link_rel": node.link_rel or "",
+            "itemprop": node.itemprop or "",
             "schema_name": schema.name or "",
             "schema_author": schema.author or "",
             "schema_date": schema.date_published or "",

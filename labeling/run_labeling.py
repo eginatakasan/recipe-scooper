@@ -70,6 +70,8 @@ def _build_node_df(html: str, kaggle_row: pd.Series) -> pd.DataFrame:
             "tag": node.tag,
             "class_name": node.class_name or "",
             "link_href": node.link_href or "",
+            "link_rel": node.link_rel or "",
+            "itemprop": node.itemprop or "",
             # Schema.org signals (join multi-value fields with || for fuzzy matching)
             "schema_name": schema.name or "",
             "schema_author": schema.author or "",

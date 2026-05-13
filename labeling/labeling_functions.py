@@ -45,7 +45,10 @@ _DATE_RE = re.compile(
 )
 
 _AUTHOR_XPATH_RE = re.compile(r"(author|byline|contributor)", re.IGNORECASE)
-_AUTHOR_CLASS_RE = re.compile(r"(?:^|[\s_-])(author|contributor|author-name|author_name)(?:$|[\s_-])", re.IGNORECASE)
+_AUTHOR_CLASS_RE = re.compile(
+    r"(?:^|[\s_-])(author|contributor|byline|entry-author|recipe-author|author-name|author_name)(?:$|[\s_-])",
+    re.IGNORECASE,
+)
 _AUTHOR_CLASS_NEG_RE = re.compile(r"(?:^|[\s_-])(comment|feedback|review)(?:$|[\s_-])", re.IGNORECASE)
 _AUTHOR_ABOUT_HREF_RE = re.compile(
     r"(?:^|/)(about(?:[-_/]?me)?)(?:/|$)|/author(?:s)?(?:/|$)|/profile(?:/|$)",
@@ -333,6 +336,70 @@ def lf_author_xpath(x):
 
 
 @labeling_function()
+def lf_author_by_prefix(x):
+    """Label nodes whose visible text is a 'By Name' byline pattern.
+
+    - Filters out: nodes not starting with 'by ', single-word suffixes (e.g. 'By Email'),
+      and text that doesn't look like a name.
+    - How: strips 'by ' prefix, requires >= 2 tokens, then `_looks_like_author_name`.
+    - Parameters: `_looks_like_author_name` heuristics.
+    """
+    text = (getattr(x, "text", "") or "").strip().replace(" ", " ")
+    if not text.lower().startswith("by "):
+        return ABSTAIN
+    name_part = text[3:].strip()
+    if len(name_part.split()) < 2:
+        return ABSTAIN
+    return AUTHOR if _looks_like_author_name(name_part) else ABSTAIN
+
+
+@labeling_function()
+def lf_author_schema_fuzzy(x):
+    """Label nodes that fuzzy-match the schema.org author name.
+
+    - Filters out: nodes longer than MAX_LENGTH_AUTHOR and non-matches.
+    - How: `rapidfuzz.partial_ratio` >= 85 between node text and `schema_author`.
+    - Parameters: threshold 85, `MAX_LENGTH_AUTHOR` length cap.
+    """
+    from rapidfuzz import fuzz
+    schema_author = (getattr(x, "schema_author", "") or "").strip()
+    if not schema_author:
+        return ABSTAIN
+    text = (getattr(x, "text", "") or "").strip()
+    if not text or len(text) > MAX_LENGTH_AUTHOR:
+        return ABSTAIN
+    return AUTHOR if fuzz.partial_ratio(text.lower(), schema_author.lower()) >= 85 else ABSTAIN
+
+
+@labeling_function()
+def lf_author_rel(x):
+    """Label nodes inside an <a rel='author'> link.
+
+    - Filters out: nodes not enclosed in a link with rel=author, and text > 60 chars.
+    - How: checks 'author' in `x.link_rel` AND 2 <= len(text) <= 60.
+    - Parameters: none (rel=author is a strong semantic signal; no name heuristic needed).
+    """
+    if "author" not in (getattr(x, "link_rel", "") or "").lower():
+        return ABSTAIN
+    text = (getattr(x, "text", "") or "").strip()
+    return AUTHOR if 2 <= len(text) <= 60 else ABSTAIN
+
+
+@labeling_function()
+def lf_author_itemprop(x):
+    """Label nodes with itemprop='author' microdata markup.
+
+    - Filters out: nodes without itemprop=author and text > 60 chars.
+    - How: checks 'author' in `x.itemprop` AND 2 <= len(text) <= 60.
+    - Parameters: none (itemprop=author is a strong semantic signal; no name heuristic needed).
+    """
+    if "author" not in (getattr(x, "itemprop", "") or "").lower():
+        return ABSTAIN
+    text = (getattr(x, "text", "") or "").strip()
+    return AUTHOR if 2 <= len(text) <= 60 else ABSTAIN
+
+
+@labeling_function()
 def lf_author_classname(x):
     """Label author nodes when the element class mentions author/contributor.
 
@@ -417,9 +484,13 @@ ALL_LFS: list[LabelingFunction] = [
     lf_step_ol_li,
     lf_step_long_p,
     lf_author_schema,
+    lf_author_schema_fuzzy,
     lf_author_xpath,
     lf_author_classname,
     lf_author_a,
+    lf_author_rel,
+    lf_author_itemprop,
+    lf_author_by_prefix,
     lf_date_schema,
     lf_date_time_tag,
     lf_date_pattern,

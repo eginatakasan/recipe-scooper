@@ -23,6 +23,8 @@ class HtmlNode:
     tag: str
     class_name: str = ""
     link_href: str = ""
+    link_rel: str = ""
+    itemprop: str = ""
 
 
 def _build_xpath(element: Tag) -> str:
@@ -58,13 +60,20 @@ def parse(html: str, max_nodes: int = _MAX_NODES) -> list[HtmlNode]:
         else:
             class_name = ""
 
-        # Capture the closest enclosing link href, if any.
+        # Capture the closest enclosing link href and rel, if any.
         href = ""
+        link_rel = ""
         link = element if element.name == "a" else element.find_parent("a")
         if link is not None:
-            link_href = link.get("href")
-            if isinstance(link_href, str):
-                href = link_href.strip()
+            raw_href = link.get("href")
+            if isinstance(raw_href, str):
+                href = raw_href.strip()
+            raw_rel = link.get("rel", [])
+            link_rel = " ".join(raw_rel) if isinstance(raw_rel, list) else str(raw_rel or "")
+
+        # Capture itemprop for microdata author/name signals.
+        raw_itemprop = element.get("itemprop", "")
+        itemprop = " ".join(raw_itemprop) if isinstance(raw_itemprop, list) else str(raw_itemprop or "")
 
         for child in element.children:
             if not isinstance(child, NavigableString):
@@ -80,6 +89,8 @@ def parse(html: str, max_nodes: int = _MAX_NODES) -> list[HtmlNode]:
                     tag=element.name,
                     class_name=class_name,
                     link_href=href,
+                    link_rel=link_rel,
+                    itemprop=itemprop,
                 )
             )
 
